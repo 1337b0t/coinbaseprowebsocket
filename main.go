@@ -4,15 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"time"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/preichenberger/go-coinbasepro"
 )
 
-var (
-	servAddr string
-)
+var server, serverAddr, port, productID string
+var productIDList []string
 
 func stream(productID []string) {
 
@@ -39,7 +38,7 @@ func stream(productID []string) {
 		println(err.Error())
 	}
 
-	tcpAddr, _ := net.ResolveTCPAddr("tcp", servAddr)
+	tcpAddr, _ := net.ResolveTCPAddr("tcp", serverAddr)
 	conn, _ := net.DialTCP("tcp", nil, tcpAddr)
 	conn.SetNoDelay(false)
 	conn.SetWriteBuffer(10000)
@@ -51,18 +50,36 @@ func stream(productID []string) {
 			break
 		}
 
-		jsonMsg := fmt.Sprintf("[{market:%s,price:%s,quantity:%s", message.ProductID, message.Price, message.Size)
-		start := time.Now()
+		//Message:
+		//Market: BTC-USD
+		//Price:  19000
+		//Size:   1
+		jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s}]", message.ProductID, message.Price, message.Size)
 		conn.Write([]byte(jsonMsg))
-		fmt.Println("took:", time.Since(start))
+
+		fmt.Println(jsonMsg)
 
 	}
 
 }
 
 func main() {
-	flag.StringVar(&servAddr, "server", "127.0.0.1", "server address (local is default)")
 
+	flag.StringVar(&server, "server", "127.0.0.1", "server address (local is default)")
+	flag.StringVar(&port, "port", "8081", "the default port number is 8081")
+	flag.StringVar(&productID, "products", "BTC-USD", "BTC-USD,ETH-USD")
 	flag.Parse()
+
+	//Server Adddress for TCP socket
+	serverAddr = server + ":" + port
+
+	//Create the product list for the Coinbase Pro Websocket
+	split := strings.Split(productID, ",")
+	for _, v := range split {
+		productIDList = append(productIDList, v)
+	}
+
+	//Start Stream
+	stream(productIDList)
 
 }
