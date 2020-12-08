@@ -10,7 +10,8 @@ import (
 	"github.com/preichenberger/go-coinbasepro"
 )
 
-var server, serverAddr, port, productID string
+var server, port, productID string
+var serverAddr string
 var productIDList []string
 
 func stream(productID []string) {
@@ -38,8 +39,18 @@ func stream(productID []string) {
 		println(err.Error())
 	}
 
-	tcpAddr, _ := net.ResolveTCPAddr("tcp", serverAddr)
-	conn, _ := net.DialTCP("tcp", nil, tcpAddr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", serverAddr)
+
+	if err != nil {
+		println("ResolveTCPAddr Failed:", err.Error())
+	}
+
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+
+	if err != nil {
+		println("DialTCP Failed:", err.Error())
+	}
+
 	conn.SetNoDelay(false)
 	conn.SetWriteBuffer(10000)
 
@@ -66,7 +77,7 @@ func stream(productID []string) {
 func main() {
 
 	flag.StringVar(&server, "server", "127.0.0.1", "server address (local is default)")
-	flag.StringVar(&port, "port", "8081", "the default port number is 8081")
+	flag.StringVar(&port, "port", "6666", "the default port number is 6666")
 	flag.StringVar(&productID, "products", "BTC-USD", "BTC-USD,ETH-USD")
 	flag.Parse()
 
