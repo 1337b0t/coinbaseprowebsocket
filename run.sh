@@ -1,2 +1,2 @@
 #!bin/sh
-while true; do ./main && break; done
+while true; do ./bin/main && break; done
