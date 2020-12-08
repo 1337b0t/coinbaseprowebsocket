@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"net"
@@ -86,6 +87,17 @@ func sender(ch <-chan coinbasepro.Message) {
 
 }
 
+func startserver() {
+	fmt.Println("Launching server...")
+	ln, _ := net.Listen("tcp", ":8081")
+	conn, _ := ln.Accept()
+
+	for {
+		message, _ := bufio.NewReader(conn).ReadString('\n')
+		fmt.Println(message)
+	}
+}
+
 func main() {
 
 	flag.StringVar(&server, "server", "localhost", "server address (local is default)")
@@ -110,5 +122,8 @@ func main() {
 
 	//Send Channel
 	sender(ch)
+
+	//Start Server (testing)
+	go startserver()
 
 }
