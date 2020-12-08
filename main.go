@@ -57,7 +57,7 @@ func stream(productID []string, ch chan<- coinbasepro.Message) {
 }
 
 func tcpclient(ch <-chan coinbasepro.Message) {
-	conn, _ := net.Dial("tcp", serverAddr)
+
 	for {
 
 		select {
@@ -78,7 +78,7 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 				priceSizeSum += priceFloat * sizeFloat
 				sizeSum += sizeFloat
 				vwap := priceSizeSum / sizeSum
-
+				conn, _ := net.Dial("tcp", serverAddr)
 				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,vwap:%.2f,size:%s}]", v.ProductID, v.Price, vwap, v.LastSize)
 				// send to socket
 				fmt.Fprintf(conn, jsonMsg+"\n")
