@@ -79,7 +79,7 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 				priceSizeSum += priceFloat * sizeFloat
 				sizeSum += sizeFloat
 				vwap := priceSizeSum / sizeSum
-				conn, _ = net.Dial("tcp", serverAddr)
+
 				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,vwap:%.2f,size:%s}]", v.ProductID, v.Price, vwap, v.LastSize)
 				// send to socket
 				fmt.Fprintf(conn, jsonMsg+"\n")
@@ -100,18 +100,18 @@ func tcpserver() {
 	ln, _ := net.Listen("tcp", ":8081")
 
 	// accept connection on port
-	conn, _ := ln.Accept()
+	connServer, _ := ln.Accept()
 
 	// run loop forever (or until ctrl-c)
 	for {
 		// will listen for message to process ending in newline (\n)
-		message, _ := bufio.NewReader(conn).ReadString('\n')
+		message, _ := bufio.NewReader(connServer).ReadString('\n')
 		// output message received
 		fmt.Print("Message Received:", string(message))
 		// sample process for string received
 		newmessage := strings.ToUpper(message)
 		// send new string back to client
-		conn.Write([]byte(newmessage + "\n"))
+		connServer.Write([]byte(newmessage + "\n"))
 	}
 }
 
@@ -139,6 +139,8 @@ func main() {
 	//Start TCP Server (testing)
 	go tcpserver()
 	//Start TCP Client
+	//setup conn for tcp client
+	conn, _ = net.Dial("tcp", serverAddr)
 	tcpclient(ch)
 
 }
