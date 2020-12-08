@@ -14,7 +14,7 @@ var server, port, productID string
 var serverAddr string
 var productIDList []string
 
-func stream(productID []string) {
+func stream(productID []string, ch chan<- coinbasepro.Message) {
 
 	var wsDialer websocket.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -35,9 +35,25 @@ func stream(productID []string) {
 			},
 		},
 	}
+
 	if err := wsConn.WriteJSON(subscribe); err != nil {
 		println(err.Error())
 	}
+
+	for true {
+		message := coinbasepro.Message{}
+		if err := wsConn.ReadJSON(&message); err != nil {
+			println(err.Error())
+			break
+		}
+
+		ch <- message
+
+	}
+
+}
+
+func sender(ch <-chan coinbasepro.Message) {
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", serverAddr)
 
@@ -51,33 +67,29 @@ func stream(productID []string) {
 		println("DialTCP Failed:", err.Error())
 	}
 
-	conn.SetNoDelay(false)
-	conn.SetWriteBuffer(10000)
+	for {
 
-	for true {
-		message := coinbasepro.Message{}
-		if err := wsConn.ReadJSON(&message); err != nil {
-			println(err.Error())
-			break
+		select {
+		case v, err := <-ch:
+			if !err {
+				return
+			}
+			//Message:
+			//Market: BTC-USD
+			//Price:  19000
+			//Size:   1
+			jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s}]", v.ProductID, v.Price, v.LastSize)
+			conn.Write([]byte(jsonMsg))
+			fmt.Println(jsonMsg)
 		}
-
-		//Message:
-		//Market: BTC-USD
-		//Price:  19000
-		//Size:   1
-		jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s}]", message.ProductID, message.Price, message.Size)
-		conn.Write([]byte(jsonMsg))
-
-		fmt.Println(jsonMsg)
-
 	}
 
 }
 
 func main() {
 
-	flag.StringVar(&server, "server", "127.0.0.1", "server address (local is default)")
-	flag.StringVar(&port, "port", "6666", "the default port number is 6666")
+	flag.StringVar(&server, "server", "localhost", "server address (local is default)")
+	flag.StringVar(&port, "port", "8081", "the default port number is 8081")
 	flag.StringVar(&productID, "products", "BTC-USD", "BTC-USD,ETH-USD")
 	flag.Parse()
 
@@ -90,7 +102,13 @@ func main() {
 		productIDList = append(productIDList, v)
 	}
 
+	//Setup channel for Coinbase Message
+	ch := make(chan coinbasepro.Message)
+
 	//Start Stream
-	stream(productIDList)
+	go stream(productIDList, ch)
+
+	//Send Channel
+	sender(ch)
 
 }
