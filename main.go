@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/preichenberger/go-coinbasepro"
@@ -58,6 +59,9 @@ func stream(productID []string, ch chan<- coinbasepro.Message) {
 }
 
 func tcpclient(ch <-chan coinbasepro.Message) {
+
+	//setup conn for tcp client
+	conn, _ = net.Dial("tcp", serverAddr)
 
 	for {
 
@@ -139,8 +143,7 @@ func main() {
 	//Start TCP Server (testing)
 	go tcpserver()
 	//Start TCP Client
-	//setup conn for tcp client
-	conn, _ = net.Dial("tcp", serverAddr)
+	time.Sleep(1 * time.Second)
 	tcpclient(ch)
 
 }
