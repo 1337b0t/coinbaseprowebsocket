@@ -13,11 +13,23 @@ import (
 	"github.com/preichenberger/go-coinbasepro"
 )
 
-var server, port, productID string
-var serverAddr string
-var productIDList []string
-var priceSizeSum, sizeSum float64
-var conn net.Conn
+type vwapCounters struct {
+	PriceSizeSum float64
+	SizeSum      float64
+	VWAP         float64
+}
+
+type technicals struct {
+	vwapMap map[string]*vwapCounters
+}
+
+var (
+	server, port, productID string
+	serverAddr              string
+	productIDList           []string
+	vwap                    = map[string]vwapCounters{}
+	conn                    net.Conn
+)
 
 func stream(productID []string, ch chan<- coinbasepro.Message) {
 
@@ -80,9 +92,10 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 				priceFloat, _ := strconv.ParseFloat(v.Price, 64)
 				sizeFloat, _ := strconv.ParseFloat(v.LastSize, 64)
 
-				priceSizeSum += priceFloat * sizeFloat
-				sizeSum += sizeFloat
-				vwap := priceSizeSum / sizeSum
+				//calculate the technicals for the correct product id
+				technicals := &technicals{}
+				technicals.incrementVWAP(v.ProductID, priceFloat*sizeFloat, sizeFloat)
+				vwap := technicals.vwapMap[v.ProductID].VWAP
 
 				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,vwap:%.2f,size:%s}]", v.ProductID, v.Price, vwap, v.LastSize)
 				// send to socket
@@ -95,6 +108,14 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 		}
 
 	}
+}
+
+//increment the variables for the weighted average calculation
+func (t *technicals) incrementVWAP(productID string, priceSizeSum float64, sizeSum float64) {
+	t.vwapMap = map[string]*vwapCounters{
+		productID: &vwapCounters{PriceSizeSum: priceSizeSum, SizeSum: sizeSum, VWAP: priceSizeSum / sizeSum},
+	}
+
 }
 
 func tcpserver() {
@@ -123,7 +144,7 @@ func main() {
 
 	flag.StringVar(&server, "server", "localhost", "server address (local is default)")
 	flag.StringVar(&port, "port", "8081", "the default port number is 8081")
-	flag.StringVar(&productID, "products", "BTC-USD", "BTC-USD")
+	flag.StringVar(&productID, "products", "BTC-USD,ETH-USD", "Example: BTC-USD,ETH-USD")
 	flag.Parse()
 
 	//Server Adddress for TCP socket
@@ -133,6 +154,7 @@ func main() {
 	split := strings.Split(productID, ",")
 	for _, v := range split {
 		productIDList = append(productIDList, v)
+
 	}
 
 	//Setup channel for Coinbase Message
