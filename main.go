@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -14,6 +15,7 @@ import (
 var server, port, productID string
 var serverAddr string
 var productIDList []string
+var priceSizeSum, sizeSum float64
 
 func stream(productID []string, ch chan<- coinbasepro.Message) {
 
@@ -54,20 +56,8 @@ func stream(productID []string, ch chan<- coinbasepro.Message) {
 
 }
 
-func sender(ch <-chan coinbasepro.Message) {
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", serverAddr)
-
-	if err != nil {
-		println("ResolveTCPAddr Failed:", err.Error())
-	}
-
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-
-	if err != nil {
-		println("DialTCP Failed:", err.Error())
-	}
-
+func tcpclient(ch <-chan coinbasepro.Message) {
+	conn, _ := net.Dial("tcp", serverAddr)
 	for {
 
 		select {
@@ -75,26 +65,52 @@ func sender(ch <-chan coinbasepro.Message) {
 			if !err {
 				return
 			}
-			//Message:
-			//Market: BTC-USD
-			//Price:  19000
-			//Size:   1
-			jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s}]", v.ProductID, v.Price, v.LastSize)
-			conn.Write([]byte(jsonMsg))
-			fmt.Println(jsonMsg)
-		}
-	}
 
+			//Skip blank price messages
+			if v.Price != "" {
+				//Message:
+				//Market: BTC-USD
+				//Price:  19000
+				//Size:   1
+				priceFloat, _ := strconv.ParseFloat(v.Price, 64)
+				sizeFloat, _ := strconv.ParseFloat(v.LastSize, 64)
+
+				priceSizeSum += priceFloat * sizeFloat
+				sizeSum += sizeFloat
+				vwap := priceSizeSum / sizeSum
+
+				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,vwap:%.2f,size:%s}]", v.ProductID, v.Price, vwap, v.LastSize)
+				// send to socket
+				fmt.Fprintf(conn, jsonMsg+"\n")
+				// listen for reply
+				bufio.NewReader(conn).ReadString('\n')
+				//fmt.Print("Message from server: " + message)
+			}
+
+		}
+
+	}
 }
 
-func startserver() {
+func tcpserver() {
 	fmt.Println("Launching server...")
+
+	// listen on all interfaces
 	ln, _ := net.Listen("tcp", ":8081")
+
+	// accept connection on port
 	conn, _ := ln.Accept()
 
+	// run loop forever (or until ctrl-c)
 	for {
+		// will listen for message to process ending in newline (\n)
 		message, _ := bufio.NewReader(conn).ReadString('\n')
-		fmt.Println(message)
+		// output message received
+		fmt.Print("Message Received:", string(message))
+		// sample process for string received
+		newmessage := strings.ToUpper(message)
+		// send new string back to client
+		conn.Write([]byte(newmessage + "\n"))
 	}
 }
 
@@ -102,7 +118,7 @@ func main() {
 
 	flag.StringVar(&server, "server", "localhost", "server address (local is default)")
 	flag.StringVar(&port, "port", "8081", "the default port number is 8081")
-	flag.StringVar(&productID, "products", "BTC-USD", "BTC-USD,ETH-USD")
+	flag.StringVar(&productID, "products", "BTC-USD", "BTC-USD")
 	flag.Parse()
 
 	//Server Adddress for TCP socket
@@ -119,11 +135,9 @@ func main() {
 
 	//Start Stream
 	go stream(productIDList, ch)
-
-	//Send Channel
-	sender(ch)
-
-	//Start Server (testing)
-	go startserver()
+	//Start TCP Server (testing)
+	go tcpserver()
+	//Start TCP Client
+	tcpclient(ch)
 
 }
