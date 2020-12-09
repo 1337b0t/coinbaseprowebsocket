@@ -1,8 +1,11 @@
 # coinbaseprowebsocket
-Quick and dirty websocket that connects to Coinbase Pro
+Quick and dirty websocket example based off github.com/preichenberger/go-coinbasepro
+
+Highlights:
 
 - Immediate gratification
 - Market, Price, VWAP (Volume Weighted Average Price, Size
+- TCP forwarding
 
 ## Usage
 ```sh
