@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,22 +12,10 @@ import (
 	"github.com/preichenberger/go-coinbasepro"
 )
 
-type vwapCounters struct {
-	PriceSizeSum float64
-	SizeSum      float64
-	VWAP         float64
-}
-
-type technicals struct {
-	vwapMap map[string]*vwapCounters
-}
-
 var (
-	server, port, productID string
-	serverAddr              string
-	productIDList           []string
-	vwap                    = map[string]vwapCounters{}
-	conn                    net.Conn
+	server, serverAddr, port, productID string
+	productIDList                       []string
+	conn                                net.Conn
 )
 
 func stream(productID []string, ch chan<- coinbasepro.Message) {
@@ -85,19 +72,7 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 
 			//Skip blank price messages
 			if v.Price != "" {
-				//Message:
-				//Market: BTC-USD
-				//Price:  19000
-				//Size:   1
-				priceFloat, _ := strconv.ParseFloat(v.Price, 64)
-				sizeFloat, _ := strconv.ParseFloat(v.LastSize, 64)
-
-				//calculate the technicals for the correct product id
-				technicals := &technicals{}
-				technicals.incrementVWAP(v.ProductID, priceFloat*sizeFloat, sizeFloat)
-				vwap := technicals.vwapMap[v.ProductID].VWAP
-
-				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,vwap:%.2f,size:%s}]", v.ProductID, v.Price, vwap, v.LastSize)
+				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s,side: %s, bestBid:%s, bestAsk:%s}]", v.ProductID, v.Price, v.LastSize, v.Side, v.BestBid, v.BestAsk)
 				// send to socket
 				fmt.Fprintf(conn, jsonMsg+"\n")
 				// listen for reply
@@ -108,14 +83,6 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 		}
 
 	}
-}
-
-//increment the variables for the weighted average calculation
-func (t *technicals) incrementVWAP(productID string, priceSizeSum float64, sizeSum float64) {
-	t.vwapMap = map[string]*vwapCounters{
-		productID: &vwapCounters{PriceSizeSum: priceSizeSum, SizeSum: sizeSum, VWAP: priceSizeSum / sizeSum},
-	}
-
 }
 
 func tcpserver() {
@@ -132,7 +99,8 @@ func tcpserver() {
 		// will listen for message to process ending in newline (\n)
 		message, _ := bufio.NewReader(connServer).ReadString('\n')
 		// output message received
-		fmt.Print("Message Received:", string(message))
+		//fmt.Print("Message Received:", string(message))
+		fmt.Print(string(message))
 		// sample process for string received
 		newmessage := strings.ToUpper(message)
 		// send new string back to client
