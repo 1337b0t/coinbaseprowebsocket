@@ -4,7 +4,7 @@ Quick and dirty websocket example based off github.com/preichenberger/go-coinbas
 Highlights:
 
 - TCP Server and Listener for calculations and processing
-- Use this example to start your crytp trading app and save yourself a headache from unexpected disconnects
+- Use this example to start your crytpo trading app, and save yourself a headache from unexpected disconnects
 
 ## Usage
 ```sh
