@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,7 +73,8 @@ func tcpclient(ch <-chan coinbasepro.Message) {
 
 			//Skip blank price messages
 			if v.Price != "" {
-				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s,side: %s, bestBid:%s, bestAsk:%s}]", v.ProductID, v.Price, v.LastSize, v.Side, v.BestBid, v.BestAsk)
+				tm := strconv.Itoa(int(v.Time.Time().Unix()))
+				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s,side: %s, bestBid:%s, bestAsk:%s, tm:%s}]", v.ProductID, v.Price, v.LastSize, v.Side, v.BestBid, v.BestAsk, tm)
 				// send to socket
 				fmt.Fprintf(conn, jsonMsg+"\n")
 				// listen for reply
