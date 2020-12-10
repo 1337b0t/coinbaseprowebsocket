@@ -42,14 +42,13 @@ func stream(productID []string, ch chan<- coinbasepro.Message) {
 	}
 
 	if err := wsConn.WriteJSON(subscribe); err != nil {
-		println(err.Error())
+		panic("Script restart required")
 	}
 
 	for true {
 		message := coinbasepro.Message{}
 		if err := wsConn.ReadJSON(&message); err != nil {
-			println(err.Error())
-			break
+			panic("Script restart required")
 		}
 
 		ch <- message
