@@ -16,6 +16,10 @@ var (
 	conn                                net.Conn
 )
 
+const (
+	pongWait = 60 * time.Second
+)
+
 func stream(productID []string, ch chan<- coinbasepro.Message) {
 
 	var wsDialer websocket.Dialer
@@ -56,6 +60,32 @@ func stream(productID []string, ch chan<- coinbasepro.Message) {
 		}
 	}()
 
+}
+
+func keepAlive(c *websocket.Conn, timeout time.Duration) {
+	ticker := time.NewTicker(timeout)
+
+	lastResponse := time.Now()
+	c.SetPongHandler(func(msg string) error {
+		lastResponse = time.Now()
+		return nil
+	})
+
+	go func() {
+		defer ticker.Stop()
+		for {
+			deadline := time.Now().Add(10 * time.Second)
+			err := c.WriteControl(websocket.PingMessage, []byte{}, deadline)
+			if err != nil {
+				return
+			}
+			<-ticker.C
+			if time.Now().Sub(lastResponse) > timeout {
+				c.Close()
+				return
+			}
+		}
+	}()
 }
 
 func main() {
