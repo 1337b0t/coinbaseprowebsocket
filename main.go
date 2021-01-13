@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"flag"
-	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -45,68 +42,20 @@ func stream(productID []string, ch chan<- coinbasepro.Message) {
 		panic("Script restart required")
 	}
 
-	for true {
-		message := coinbasepro.Message{}
-		if err := wsConn.ReadJSON(&message); err != nil {
-			panic("Script restart required")
-		}
+	go func() {
 
-		ch <- message
-
-	}
-
-}
-
-func tcpclient(ch <-chan coinbasepro.Message) {
-
-	//setup conn for tcp client
-	conn, _ = net.Dial("tcp", serverAddr)
-
-	for {
-
-		select {
-		case v, err := <-ch:
-			if !err {
-				return
+		keepAlive(wsConn, pongWait)
+		for true {
+			message := coinbasepro.Message{}
+			if err := wsConn.ReadJSON(&message); err != nil {
+				panic("Script restart required")
 			}
 
-			//Skip blank price messages
-			if v.Price != "" {
-				tm := strconv.Itoa(int(v.Time.Time().Unix()))
-				jsonMsg := fmt.Sprintf("[{market:%s,price:%s,size:%s,side:%s,bestBid:%s,bestAsk:%s,tm:%s}]", v.ProductID, v.Price, v.LastSize, v.Side, v.BestBid, v.BestAsk, tm)
-				// send to socket
-				fmt.Fprintf(conn, jsonMsg+"\n")
-				// listen for reply
-				bufio.NewReader(conn).ReadString('\n')
-				//fmt.Print("Message from server: " + message)
-			}
+			ch <- message
 
 		}
+	}()
 
-	}
-}
-
-func tcpserver() {
-	fmt.Println("Launching server...")
-
-	// listen on all interfaces
-	ln, _ := net.Listen("tcp", ":8081")
-
-	// accept connection on port
-	connServer, _ := ln.Accept()
-
-	// run loop forever (or until ctrl-c)
-	for {
-		// will listen for message to process ending in newline (\n)
-		message, _ := bufio.NewReader(connServer).ReadString('\n')
-		// output message received
-		//fmt.Print("Message Received:", string(message))
-		fmt.Print(string(message))
-		// sample process for string received
-		newmessage := strings.ToUpper(message)
-		// send new string back to client
-		connServer.Write([]byte(newmessage + "\n"))
-	}
 }
 
 func main() {
@@ -135,6 +84,6 @@ func main() {
 	go tcpserver()
 	//Start TCP Client
 	time.Sleep(1 * time.Second)
-	tcpclient(ch)
+	tcpclient(ch, serverAddr)
 
 }
